@@ -3,7 +3,9 @@
 #include "blas.h"
 #include "cuda.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
+#include "jWrite.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -192,8 +194,15 @@ image **load_alphabet()
 
 void draw_detections(image im, int num, float thresh, box *boxes, float **probs, char **names, image **alphabet, int classes)
 {
-    int i;
-
+    int i, j;
+    //------------------------
+    char buffer[2*1024];
+    unsigned int buflen = 2*1024;
+    int err;
+    jwOpen( buffer, buflen, JW_OBJECT, JW_PRETTY );
+    //jwObj_array( "detections" );
+    j = 1;
+    //------------------------
     for(i = 0; i < num; ++i){
         int class = max_index(probs[i], classes);
         float prob = probs[i][class];
@@ -207,7 +216,7 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
             }
 
             //printf("%d %s: %.0f%%\n", i, names[class], prob*100);
-            printf("%s: %.0f%%\n", names[class], prob*100);
+            //ori:printf("%s: %.0f%%\n", names[class], prob*100);
             int offset = class*123457 % classes;
             float red = get_color(2,offset,classes);
             float green = get_color(1,offset,classes);
@@ -225,6 +234,20 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
             int right = (b.x+b.w/2.)*im.w;
             int top   = (b.y-b.h/2.)*im.h;
             int bot   = (b.y+b.h/2.)*im.h;
+            printf("%s: %.0f%% x1:%d y1:%d x2:%d y2:%d \n", names[class], prob*100, left, top, right, bot);
+            //------------------------
+            char objid[10];   sprintf(objid, "%d", j);
+            char objname[32]; sprintf(objname, "%s", names[class]);
+            jwObj_array(objid);
+            jwArr_string(objname);
+            jwArr_double(prob*100);
+            jwArr_int(left);
+            jwArr_int(top);
+            jwArr_int(right);
+            jwArr_int(bot);
+            jwEnd();
+            j = j + 1;
+            //------------------------
 
             if(left < 0) left = 0;
             if(right > im.w-1) right = im.w-1;
@@ -239,6 +262,19 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
             }
         }
     }
+    //------------------------
+    //jwEnd();
+    err = jwClose();
+    printf(buffer);
+    if(err != JWRITE_OK)
+      printf("Error: %s at function call %d\n", jwErrorToString(err), jwErrorPos());
+    printf("\n");
+    //------------------------
+    FILE *fp;
+    fp = fopen("predictions.json", "w+");
+    fprintf(fp, buffer);
+    fclose(fp);
+    //------------------------
 }
 
 void transpose_image(image im)
