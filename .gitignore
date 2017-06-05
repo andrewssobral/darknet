@@ -1,3 +1,6 @@
+*.json
+*.a
+*.weights
 *.o
 *.dSYM
 *.csv
